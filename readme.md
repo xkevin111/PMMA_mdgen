@@ -5,10 +5,12 @@ The trajectory of a single PMMA chain is obtained from a `LAMMPS` simulation and
 The script `data\generate_trajectory.py` constructs a continuous spatio-temporal tensor from the LAMMPS trajectory by mathematically mapping atomic coordinate data into a state sequence of positions and orientational quaternions. 
 
 Initially, the algorithm parses the data file's topology to identify $N$ backbone atoms and their corresponding side-chain atoms connected via A-B bonds. For any given timeframe $t$ and specific bonded pair, let the spatial position of the backbone atom be denoted as $\mathbf{p} = (x, y, z)$ and the corresponding side-chain atom as $\mathbf{s} = (x_s, y_s, z_s)$. The relative orientation of the side chain is computed via the displacement vector $\mathbf{v} = \mathbf{s} - \mathbf{p}$, which is then normalized to extract the pure directional components $\mathbf{\hat{d}}$:
-$$ \mathbf{\hat{d}} = \frac{\mathbf{v}}{\|\mathbf{v}\|} = (d_x, d_y, d_z) $$
+$$\mathbf{\hat{d}} = \frac{\mathbf{v}}{\Vert{}\mathbf{v}\Vert{}} = (d_x, d_y, d_z)$$
 To represent this orientation without singularity-prone Euler angles, the direction vector is mapped to a quaternion $\mathbf{q} = (q_w, q_x, q_y, q_z)$ describing the rotation from the standard Cartesian reference vector $\mathbf{k} = (0, 0, 1)$ to $\mathbf{\hat{d}}$. The unnormalized quaternion components are derived algebraically from the scaled rotation axis $\mathbf{k} \times \mathbf{\hat{d}}$ and the angle cosine derived from $\mathbf{k} \cdot \mathbf{\hat{d}}$, yielding the deduction $q_w = 1.0 + d_z$, $q_x = -d_y$, $q_y = d_x$, and $q_z = 0.0$. This vector is subsequently normalized by its Euclidean norm to generate a unit quaternion:
-$$ \mathbf{q}_{norm} = \frac{(1.0 + d_z, -d_y, d_x, 0.0)}{\sqrt{(1.0 + d_z)^2 + d_y^2 + d_x^2}} $$
-In the edge case where the vector is perfectly anti-parallel to the reference ($d_z < -0.999999$), the script avoids division by zero by strictly assigning the orthogonal quaternion $\mathbf{q}_{norm} = (0.0, 1.0, 0.0, 0.0)$. Finally, the algorithm concatenates the normalized quaternion and the backbone position into a 7-dimensional state vector $$ \mathbf{x} = [q_w, q_x, q_y, q_z, p_x, p_y, p_z] $$ for each atom pair, iterating over all $T$ frames to compile the final dataset as a mathematical tensor of dimensions $(T, N, 7)$.
+$$\mathbf{q}_{norm} = \frac{(1.0 + d_z, -d_y, d_x, 0.0)}{\sqrt{(1.0 + d_z)^2 + d_y^2 + d_x^2}}$$
+In the edge case where the vector is perfectly anti-parallel to the reference ($d_z < -0.999999$), the script avoids division by zero by strictly assigning the orthogonal quaternion $\mathbf{q}_{norm} = (0.0, 1.0, 0.0, 0.0)$. Finally, the algorithm concatenates the normalized quaternion and the backbone position into a 7-dimensional state vector:
+$$\mathbf{x} = [q_w, q_x, q_y, q_z, p_x, p_y, p_z]$$
+for each atom pair, iterating over all $T$ frames to compile the final dataset as a mathematical tensor of dimensions $(T, N, 7)$.
 
 We have also tested the conversion, with the result shown in `data\test.ipynb`
 
@@ -22,13 +24,13 @@ The following algorithms are extracted from the original project: https://github
 ***
 * **Require:** Target latent inputs $x$, initial frame roto-translations $g_1$, torsions $\tau_1$, amino acid identities $A$, flow timestep $t$, conditioning masks.
 1. **Embed inputs:** $x \leftarrow \text{Linear}(x) + \text{PositionalEmbeddings} + \text{TimeEmbeddings}$
-2. **Add initial state conditioning:** $x \leftarrow x + \text{Linear}(x_{cond}) + \text{Embedding}(x_{cond\_mask})$
-3. **Embed timestep:** $t_{emb} \leftarrow \text{TimestepEmbedder}(t \times \text{time\_multiplier})$
+2. **Add initial state conditioning:** $x \leftarrow x + \text{Linear}(x_{cond}) + \text{Embedding}(x_{cond-mask})$
+3. **Embed timestep:** $t_{emb} \leftarrow \text{TimestepEmbedder}(t \times \text{time-multiplier})$
 4. **Initialize prepended IPA features:** $x_{ipa} \leftarrow \text{Embedding}(A)$
-5. **for** $l = 1$ **to** $\text{num\_ipa\_layers}$ **do**
+5. **for** $l = 1$ **to** $\text{num-ipa-layers}$ **do**
    1. $x_{ipa} \leftarrow \text{IPALayer}(x_{ipa}, t_{emb}, mask_{t=1}, g_1)$
 6. **Broadcast IPA output across time:** $x \leftarrow x + x_{ipa}[:, \text{None}]$
-7. **for** $l = 1$ **to** $\text{num\_transformer\_layers}$ **do**
+7. **for** $l = 1$ **to** $\text{num-transformer-layers}$ **do**
    1. $x \leftarrow \text{LatentMDGenLayer}(x, t_{emb}, mask, g_1)$
 8. **Project to flow velocity:** $v \leftarrow \text{FinalLayer}(x, t_{emb})$
 9. **return** $v$
@@ -69,4 +71,3 @@ The following algorithms are extracted from the original project: https://github
 # Result analysis
 
 The training result is shown in `result\1.2_50frames_PMMA_1w\ellipsoid_symmetric\log.out`. The comparison of the inference result and the original trajectory is shown in `result\1.2_50frames_PMMA_1w\inference\test_dataset.ipynb`. We can find that the generated trajectory is continuous and smooth, which is expected for a molecular dynamics simulation. In addition, the generated trajectory is similar to the original trajectory, which indicates that the model can learn the dynamics of the PMMA chain.
-
