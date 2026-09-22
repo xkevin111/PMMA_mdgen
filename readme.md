@@ -5,15 +5,15 @@ The trajectory of a single PMMA chain is obtained from a `LAMMPS` simulation and
 
 The script `data\generate_trajectory.py` constructs a continuous spatio-temporal tensor from the LAMMPS trajectory by mathematically mapping atomic coordinate data into a state sequence of positions and orientational quaternions. 
 
-Initially, the algorithm parses the data file's topology to identify $N$ backbone atoms and their corresponding side-chain atoms connected via A-B bonds. For any given timeframe $t$ and specific bonded pair, let the spatial position of the backbone atom be denoted as $\mathbf{p} = (x, y, z)$ and the corresponding side-chain atom as $\mathbf{s} = (x_s, y_s, z_s)$. The relative orientation of the side chain is computed via the displacement vector $\mathbf{v} = \mathbf{s} - \mathbf{p}$, which is then normalized to extract the pure directional components $\mathbf{\hat{d}}$:
+Initially, the algorithm parses the data file's topology to identify $N$ backbone atoms and their corresponding side-chain atoms connected via A-B bonds. For any given timeframe $t$ and specific bonded pair, let the spatial position of the backbone atom be denoted as $\mathbf{p} = (x, y, z)$ and the corresponding side-chain atom as $\mathbf{s} = (x\sb{s}, y\sb{s}, z\sb{s})$. The relative orientation of the side chain is computed via the displacement vector $\mathbf{v} = \mathbf{s} - \mathbf{p}$, which is then normalized to extract the pure directional components $\mathbf{\hat{d}}$:
 
 $$\mathbf{\hat{d}} = \frac{\mathbf{v}}{\Vert{}\mathbf{v}\Vert{}} = (d_x, d_y, d_z)$$
 
-To represent this orientation without singularity-prone Euler angles, the direction vector is mapped to a quaternion $\mathbf{q} = (q_w, q_x, q_y, q_z)$ describing the rotation from the standard Cartesian reference vector $\mathbf{k} = (0, 0, 1)$ to $\mathbf{\hat{d}}$. The unnormalized quaternion components are derived algebraically from the scaled rotation axis $\mathbf{k} \times \mathbf{\hat{d}}$ and the angle cosine derived from $\mathbf{k} \cdot \mathbf{\hat{d}}$, yielding the deduction $q_w = 1.0 + d_z$, $q_x = -d_y$, $q_y = d_x$, and $q_z = 0.0$. This vector is subsequently normalized by its Euclidean norm to generate a unit quaternion:
+To represent this orientation without singularity-prone Euler angles, the direction vector is mapped to a quaternion $\mathbf{q} = (q\sb{w}, q\sb{x}, q\sb{y}, q\sb{z})$ describing the rotation from the standard Cartesian reference vector $\mathbf{k} = (0, 0, 1)$ to $\mathbf{\hat{d}}$. The unnormalized quaternion components are derived algebraically from the scaled rotation axis $\mathbf{k} \times \mathbf{\hat{d}}$ and the angle cosine derived from $\mathbf{k} \cdot \mathbf{\hat{d}}$, yielding the deduction $q\sb{w} = 1.0 + d\sb{z}$, $q\sb{x} = -d\sb{y}$, $q\sb{y} = d\sb{x}$, and $q\sb{z} = 0.0$. This vector is subsequently normalized by its Euclidean norm to generate a unit quaternion:
 
 $$\mathbf{q}_{norm} = \frac{(1.0 + d_z, -d_y, d_x, 0.0)}{\sqrt{(1.0 + d_z)^2 + d_y^2 + d_x^2}}$$
 
-In the edge case where the vector is perfectly anti-parallel to the reference ($d_z \lt -0.999999$), the script avoids division by zero by strictly assigning the orthogonal quaternion $\mathbf{q}_{norm} = (0.0, 1.0, 0.0, 0.0)$. Finally, the algorithm concatenates the normalized quaternion and the backbone position into a 7-dimensional state vector:
+In the edge case where the vector is perfectly anti-parallel to the reference ($d\sb{z} \lt -0.999999$), the script avoids division by zero by strictly assigning the orthogonal quaternion $\mathbf{q}\sb{norm} = (0.0, 1.0, 0.0, 0.0)$. Finally, the algorithm concatenates the normalized quaternion and the backbone position into a 7-dimensional state vector:
 
 $$\mathbf{x} = [q_w, q_x, q_y, q_z, p_x, p_y, p_z]$$
 
@@ -29,50 +29,50 @@ The following algorithms are extracted from the original project: https://github
 
 **Algorithm 1:** Velocity Network (`LatentMDGenModel`)
 ***
-* **Require:** Target latent inputs $x$, initial frame roto-translations $g_1$, torsions $\tau_1$, amino acid identities $A$, flow timestep $t$, conditioning masks.
+* **Require:** Target latent inputs $x$, initial frame roto-translations $g\sb{1}$, torsions $\tau\sb{1}$, amino acid identities $A$, flow timestep $t$, conditioning masks.
 1. **Embed inputs:** $x \leftarrow \text{Linear}(x) + \text{PositionalEmbeddings} + \text{TimeEmbeddings}$
-2. **Add initial state conditioning:** $x \leftarrow x + \text{Linear}(x_{cond}) + \text{Embedding}(x_{cond\_mask})$
-3. **Embed timestep:** $t_{emb} \leftarrow \text{TimestepEmbedder}(t \times \text{time\_multiplier})$
-4. **Initialize prepended IPA features:** $x_{ipa} \leftarrow \text{Embedding}(A)$
-5. **for** $l = 1$ **to** $\text{num\_ipa\_layers}$ **do**
-   1. $x_{ipa} \leftarrow \text{IPALayer}(x_{ipa}, t_{emb}, mask_{t=1}, g_1)$
-6. **Broadcast IPA output across time:** $x \leftarrow x + x_{ipa}[:, \text{None}]$
-7. **for** $l = 1$ **to** $\text{num\_transformer\_layers}$ **do**
-   1. $x \leftarrow \text{LatentMDGenLayer}(x, t_{emb}, mask, g_1)$
-8. **Project to flow velocity:** $v \leftarrow \text{FinalLayer}(x, t_{emb})$
+2. **Add initial state conditioning:** $x \leftarrow x + \text{Linear}(x\sb{cond}) + \text{Embedding}(x\sb{cond-mask})$
+3. **Embed timestep:** $t\sb{emb} \leftarrow \text{TimestepEmbedder}(t \times \text{time-multiplier})$
+4. **Initialize prepended IPA features:** $x\sb{ipa} \leftarrow \text{Embedding}(A)$
+5. **for** $l = 1$ **to** $\text{num-ipa-layers}$ **do**
+   1. $x\sb{ipa} \leftarrow \text{IPALayer}(x\sb{ipa}, t\sb{emb}, mask\sb{t=1}, g\sb{1})$
+6. **Broadcast IPA output across time:** $x \leftarrow x + x\sb{ipa}[:, \text{None}]$
+7. **for** $l = 1$ **to** $\text{num-transformer-layers}$ **do**
+   1. $x \leftarrow \text{LatentMDGenLayer}(x, t\sb{emb}, mask, g\sb{1})$
+8. **Project to flow velocity:** $v \leftarrow \text{FinalLayer}(x, t\sb{emb})$
 9. **return** $v$
 
 **Algorithm 2:** Main Transformer Block (`LatentMDGenLayer`)
 ***
-* **Require:** Input tensor $x$, timestep embedding $t_{emb}$, mask $mask$, initial frame geometry $g_1$.
+* **Require:** Input tensor $x$, timestep embedding $t\sb{emb}$, mask $mask$, initial frame geometry $g\sb{1}$.
 1. **Extract modulation parameters:** 
-   * $(\gamma_s, \beta_s, g_s, \gamma_t, \beta_t, g_t, \gamma_m, \beta_m, g_m) \leftarrow \text{chunk}(\text{AdaLN}(t_{emb}), 9)$
+   * $(\gamma\sb{s}, \beta\sb{s}, g\sb{s}, \gamma\sb{t}, \beta\sb{t}, g\sb{t}, \gamma\sb{m}, \beta\sb{m}, g\sb{m}) \leftarrow \text{chunk}(\text{AdaLN}(t\sb{emb}), 9)$
 2. **if** $\text{Interleaved IPA is configured}$ **then**
-   1. $x \leftarrow x + \text{InvariantPointAttention}(\text{LayerNorm}(x), g_1, mask)$
+   1. $x \leftarrow x + \text{InvariantPointAttention}(\text{LayerNorm}(x), g\sb{1}, mask)$
 3. **Spatial Attention (Residues):**
-   1. $x_{norm} \leftarrow \text{Modulate}(\text{LayerNorm}(x), \gamma_s, \beta_s)$
-   2. $x \leftarrow x + g_s \odot \text{AttentionWithRoPE}_{spatial}(x_{norm}, mask)$
+   1. $x\sb{norm} \leftarrow \text{Modulate}(\text{LayerNorm}(x), \gamma\sb{s}, \beta\sb{s})$
+   2. $x \leftarrow x + g\sb{s} \odot \text{AttentionWithRoPE}\sb{spatial}(x\sb{norm}, mask)$
 4. **Temporal Attention (Frames):**
-   1. $x_{norm} \leftarrow \text{Modulate}(\text{LayerNorm}(x), \gamma_t, \beta_t)$
-   2. $x \leftarrow x + g_t \odot \text{AttentionWithRoPE}_{temporal}(x_{norm}, mask)$
+   1. $x\sb{norm} \leftarrow \text{Modulate}(\text{LayerNorm}(x), \gamma\sb{t}, \beta\sb{t})$
+   2. $x \leftarrow x + g\sb{t} \odot \text{AttentionWithRoPE}\sb{temporal}(x\sb{norm}, mask)$
 5. **Feed-Forward Network (MLP):**
-   1. $x_{norm} \leftarrow \text{Modulate}(\text{LayerNorm}(x), \gamma_m, \beta_m)$
-   2. $x \leftarrow x + g_m \odot \text{MLP}(x_{norm})$
+   1. $x\sb{norm} \leftarrow \text{Modulate}(\text{LayerNorm}(x), \gamma\sb{m}, \beta\sb{m})$
+   2. $x \leftarrow x + g\sb{m} \odot \text{MLP}(x\sb{norm})$
 6. **return** $x$
 
 **Algorithm 3:** Invariant Point Attention Block (`IPALayer`)
 ***
-* **Require:** Input tensor $x$, timestep embedding $t_{emb}$, mask $mask$, initial frame geometry $g_1$.
+* **Require:** Input tensor $x$, timestep embedding $t\sb{emb}$, mask $mask$, initial frame geometry $g\sb{1}$.
 1. **Extract modulation parameters:** 
-   * $(\gamma_s, \beta_s, g_s, \gamma_m, \beta_m, g_m) \leftarrow \text{chunk}(\text{AdaLN}(t_{emb}), 6)$
+   * $(\gamma\sb{s}, \beta\sb{s}, g\sb{s}, \gamma\sb{m}, \beta\sb{m}, g\sb{m}) \leftarrow \text{chunk}(\text{AdaLN}(t\sb{emb}), 6)$
 2. **Geometric Processing:**
-   1. $x \leftarrow x + \text{InvariantPointAttention}(\text{LayerNorm}(x), g_1, mask)$
+   1. $x \leftarrow x + \text{InvariantPointAttention}(\text{LayerNorm}(x), g\sb{1}, mask)$
 3. **Spatial Attention:**
-   1. $x_{norm} \leftarrow \text{Modulate}(\text{LayerNorm}(x), \gamma_s, \beta_s)$
-   2. $x \leftarrow x + g_s \odot \text{AttentionWithRoPE}_{spatial}(x_{norm}, mask)$
+   1. $x\sb{norm} \leftarrow \text{Modulate}(\text{LayerNorm}(x), \gamma\sb{s}, \beta\sb{s})$
+   2. $x \leftarrow x + g\sb{s} \odot \text{AttentionWithRoPE}\sb{spatial}(x\sb{norm}, mask)$
 4. **Feed-Forward Network (MLP):**
-   1. $x_{norm} \leftarrow \text{Modulate}(\text{LayerNorm}(x), \gamma_m, \beta_m)$
-   2. $x \leftarrow x + g_m \odot \text{MLP}(x_{norm})$
+   1. $x\sb{norm} \leftarrow \text{Modulate}(\text{LayerNorm}(x), \gamma\sb{m}, \beta\sb{m})$
+   2. $x \leftarrow x + g\sb{m} \odot \text{MLP}(x\sb{norm})$
 5. **return** $x$
 
 # Result analysis
